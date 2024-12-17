@@ -2,12 +2,10 @@ package main
 
 /*
 #include "hello.h"
-
-#cgo CFLAGS: -I.
-#cgo LDFLAGS: hello.o
 */
 import "C"
 
 func main() {
+	// C'deki sayHello fonksiyonunu çağır
 	C.sayHello()
 }
