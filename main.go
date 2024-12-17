@@ -1,11 +1,9 @@
 package main
 
-/*
-#include "hello.h"
-*/
-import "C"
+import (
+	"github.com/konamata/goplay/cmd"
+)
 
 func main() {
-	// C'deki sayHello fonksiyonunu çağır
-	C.sayHello()
+	cmd.Execute()
 }
