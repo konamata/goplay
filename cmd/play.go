@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,17 +19,29 @@ import (
 	"golang.org/x/term"
 )
 
+const defaultAudioURL = "https://github.com/konamata/goplay/raw/refs/heads/main/dist/xizm.mp3"
+const tempFileName = "default.mp3"
+
 var playCmd = &cobra.Command{
 	Use:   "play",
 	Short: "Plays an audio file",
 	Long:  "Plays the specified audio file.",
 	Run: func(cmd *cobra.Command, args []string) {
+		var filePath string
+
+		// Eğer dosya yolu verilmemişse, varsayılan URL'den dosyayı indir.
 		if len(args) < 1 {
-			fmt.Println("Please provide the path to the audio file.")
-			return
+			fmt.Println("No audio file provided. Playing the default audio...")
+			var err error
+			filePath, err = downloadDefaultAudio()
+			if err != nil {
+				fmt.Println("Error downloading default audio:", err)
+				return
+			}
+		} else {
+			filePath = args[0]
 		}
 
-		filePath := args[0]
 		ext := strings.ToLower(filepath.Ext(filePath))
 		if ext != ".mp3" && ext != ".wav" && ext != ".flac" && ext != ".ogg" {
 			fmt.Println("Unsupported file type. Please provide an MP3, WAV, FLAC, or OGG file.")
@@ -40,10 +54,7 @@ var playCmd = &cobra.Command{
 			return
 		}
 		defer func(file *os.File) {
-			err := file.Close()
-			if err != nil {
-				fmt.Println("Error closing file:", err)
-			}
+			_ = file.Close()
 		}(file)
 
 		streamer, format, err := mp3.Decode(file)
@@ -93,6 +104,37 @@ var playCmd = &cobra.Command{
 
 		handleKeyPress(streamer, volume, done)
 	},
+}
+
+func downloadDefaultAudio() (string, error) {
+	resp, err := http.Get(defaultAudioURL)
+	if err != nil {
+		return "", err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println("Error closing response body:", err)
+		}
+	}(resp.Body)
+
+	out, err := os.Create(tempFileName)
+	if err != nil {
+		return "", err
+	}
+	defer func(out *os.File) {
+		err := out.Close()
+		if err != nil {
+			fmt.Println("Error closing output file:", err)
+		}
+	}(out)
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return tempFileName, nil
 }
 
 func printProgressBar(position, length int, volume float64) {
